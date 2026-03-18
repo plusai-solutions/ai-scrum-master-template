@@ -1,0 +1,64 @@
+name: "05 - Final Approval (Ready for Human Merge)"
+
+on:
+  pull_request:
+    types: [labeled]
+
+jobs:
+  mark-ready-for-merge:
+    if: github.event.label.name == 'tests-passed'
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Add Ready for Merge Label
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['ready-for-merge']
+            });
+
+      - name: Notify for Human Review
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## Ready for Human Review
+
+            **Status**: All automated tests and reviews have passed!
+
+            ### Summary
+            - QA Tester has approved this PR
+            - All tests are passing
+            - Code quality standards met
+            - No critical bugs found
+
+            ### Next Steps
+            This PR is now ready for final human review and merge. A human maintainer should:
+
+            1. **Review the implementation** - Ensure it aligns with project goals
+            2. **Review the QA report** - Check the tester's findings and approval
+            3. **Verify the changes** - Quick sanity check of the code
+            4. **Merge the PR to develop** - This PR should merge to the \`develop\` branch
+
+            **Important**: This PR targets the \`develop\` branch (development environment).
+            - Merge this PR to \`develop\` for integration testing
+            - Do NOT merge feature branches directly to \`main\`
+            - Only merge from \`develop\` to \`main\` when ready for production release
+
+            ---
+            *Automated message from the multi-agent development workflow*
+            `
+            });

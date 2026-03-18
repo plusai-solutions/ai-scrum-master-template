@@ -1,0 +1,79 @@
+name: "03 - PR Review (Tester)"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - develop
+
+jobs:
+  tester-review:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: QA Tester Review
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: 'claude,*'
+          prompt: |
+            You are the QA Tester for this project. A pull request (#${{ github.event.pull_request.number }}) has been opened or updated.
+
+            **IMPORTANT**: Follow the Communication Protocol in .claude/agents/tester.md
+
+            Read your agent configuration at .claude/agents/tester.md to understand your role, responsibilities, and review process.
+
+            Read the project context from CLAUDE.md to understand quality standards and testing requirements.
+
+            **PR Details**:
+            - PR Number: #${{ github.event.pull_request.number }}
+            - Related Issue: Check PR description for issue number
+
+            **Your Tasks**:
+            1. Find the original issue number from the PR description
+            2. Post a "Starting Review" comment to the ORIGINAL ISSUE (not just the PR) - follow Communication Protocol
+            3. Review the code changes in PR #${{ github.event.pull_request.number }}
+            4. Check code quality, security, and adherence to project standards from CLAUDE.md
+            5. Read CLAUDE.md for the exact lint, test, and build commands
+            6. Run the project's lint command to check for code issues
+            7. Run the project's test command to execute all automated tests
+            8. Run the project's build command to verify the build succeeds
+            9. Review that new features have proper tests
+            10. Check adherence to coding standards defined in CLAUDE.md
+
+            **Then, based on your findings**:
+
+            **If you find critical or high-priority bugs:**
+            - Post a detailed bug report to the PR using the format from your agent configuration
+            - Post a summary to the ORIGINAL ISSUE (follow Communication Protocol)
+            - Add the "bugs-found" label to the PR
+            - DO NOT add the "tests-passed" label
+            - Mention @fullstack-dev in the issue to notify them
+
+            **If tests pass and no critical issues found:**
+            - Post detailed test results to the PR using the approval format from your agent configuration
+            - Post a summary to the ORIGINAL ISSUE (follow Communication Protocol)
+            - Add the "tests-passed" label to the PR
+            - Mention @human in the issue to notify them for final review
+
+            **CRITICAL**:
+            - MUST post "Starting Review" to the original issue first
+            - MUST post results to BOTH the PR (detailed) and the original issue (summary)
+            - MUST run the project's lint, test, and build commands (from CLAUDE.md) before approval
+            - Follow the Communication Protocol format exactly
+          claude_args: |
+            --model claude-sonnet-4-6
+            --allowedTools View,Write,Edit,Bash(gh:*),Bash(git:*),Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(pip:*),Bash(python:*),Bash(cargo:*),Bash(go:*),Bash(make:*),Bash(flutter:*),Bash(dart:*),Bash(yarn:*),Bash(pnpm:*),Bash(bundle:*),Bash(gem:*),Bash(ls:*),Bash(cat:*),Bash(echo:*),Bash(which:*),Bash(pwd:*),Bash(curl:*),Bash(chmod:*),GlobTool,GrepTool,BatchTool

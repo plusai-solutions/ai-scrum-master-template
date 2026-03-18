@@ -1,0 +1,43 @@
+name: "06 - Clarification Request (Agent to Human)"
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  notify-clarification-needed:
+    if: github.event.label.name == 'needs-clarification'
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write
+
+    steps:
+      - name: Notify Human for Clarification
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## Human Input Required
+
+            **Status**: An AI agent needs clarification to proceed with this issue.
+
+            ### What's Happening?
+            One of the AI agents (Scrum Master, Planner, Fullstack Developer, or QA Tester) has encountered ambiguity and needs human input to continue.
+
+            ### What You Need to Do
+            1. **Read the agent's question(s)** - Look for the most recent comment from the agent
+            2. **Provide clear answers** - Reply to the specific questions in a comment
+            3. **Remove the \`needs-clarification\` label** - Once you've answered, remove this label
+            4. **Add the appropriate label to continue**:
+               - If during planning: Add \`approved-plan\` after reviewing the updated plan
+               - If during implementation: The agent will continue after you respond
+
+            ---
+            *Automated notification - Please respond to the agent's questions above*
+            `
+            });

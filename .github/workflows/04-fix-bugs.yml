@@ -1,0 +1,84 @@
+name: "04 - Fix Bugs (Fullstack Developer)"
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  fullstack-bug-fix:
+    if: |
+      github.event.issue.pull_request != null &&
+      contains(github.event.comment.body, '@fullstack-dev') &&
+      contains(github.event.issue.labels.*.name, 'bugs-found')
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Get PR details
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_DATA=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }})
+          echo "branch=$(echo $PR_DATA | jq -r '.head.ref')" >> $GITHUB_OUTPUT
+          echo "sha=$(echo $PR_DATA | jq -r '.head.sha')" >> $GITHUB_OUTPUT
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr.outputs.branch }}
+          fetch-depth: 0
+
+      - name: Fullstack Developer Bug Fix
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the Fullstack Developer for this project. The QA Tester has assigned you to fix bugs in PR #${{ github.event.issue.number }}.
+
+            **IMPORTANT**: Follow the Communication Protocol in .claude/agents/fullstack_dev.md
+
+            Read your agent configuration at .claude/agents/fullstack_dev.md to understand your role and responsibilities.
+
+            Read the project context from CLAUDE.md.
+
+            **Assignment Context**:
+            - Assigned by: ${{ github.event.comment.user.login }}
+            - Comment: ${{ github.event.comment.html_url }}
+            - PR Number: #${{ github.event.issue.number }}
+            - Branch: ${{ steps.pr.outputs.branch }}
+
+            **Your Tasks**:
+            1. Find the original issue number from the PR description
+            2. Read the bug report comments on PR #${{ github.event.issue.number }}
+            3. Understand each reported issue and its severity
+            4. Fix all critical and high-priority bugs
+            5. Address medium and low-priority issues if feasible
+            6. Add or update tests to cover the fixed bugs (regression tests)
+            7. Read CLAUDE.md for the exact lint, test, and build commands
+            8. Run the project's lint command to ensure no code quality issues
+            9. Run the project's test command to ensure all tests pass
+            10. Run the project's build command to verify build still works
+            11. Commit your fixes with clear commit messages (e.g., "fix: resolve issue with X")
+            12. Push the commits to the PR branch
+            13. Remove the "bugs-found" label from the PR
+            14. Post a "Bugs Fixed" update to the ORIGINAL ISSUE (follow Communication Protocol)
+            15. Post a comment to the PR summarizing what was fixed
+            16. Mention @qa-tester in the issue to notify them to re-review
+
+            **CRITICAL**:
+            - MUST post "Bugs Fixed" update to the original issue following Communication Protocol
+            - MUST include list of what was fixed
+            - MUST run the project's lint, test, and build commands (from CLAUDE.md) before pushing
+            - MUST add regression tests for fixed bugs
+            - The tester will automatically re-review the PR after you push
+          claude_args: |
+            --model claude-sonnet-4-6
+            --allowedTools View,Write,Edit,Bash(gh:*),Bash(git:*),Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(pip:*),Bash(python:*),Bash(cargo:*),Bash(go:*),Bash(make:*),Bash(flutter:*),Bash(dart:*),Bash(yarn:*),Bash(pnpm:*),Bash(bundle:*),Bash(gem:*),Bash(ls:*),Bash(cat:*),Bash(echo:*),Bash(which:*),Bash(pwd:*),Bash(mkdir:*),Bash(curl:*),Bash(chmod:*),GlobTool,GrepTool,BatchTool

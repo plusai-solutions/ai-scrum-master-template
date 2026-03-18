@@ -1,0 +1,54 @@
+name: "01 - Issue to Plan (Planner)"
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  planner-analysis:
+    if: github.event.label.name == 'feature-request'
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Planner Analysis
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: 'claude,*'
+          show_full_output: true
+          prompt: |
+            You are the Planner (Product Manager) for this project. A new feature request has been created in issue #${{ github.event.issue.number }}.
+
+            **IMPORTANT**: Follow the Communication Protocol in .claude/agents/product_manager.md
+
+            Read the agent configuration file at .claude/agents/product_manager.md to understand your role, responsibilities, and output format.
+
+            Read the project context from CLAUDE.md to understand the project structure, tech stack, and standards.
+
+            **Your Tasks**:
+            1. Post a "Starting Analysis" comment to issue #${{ github.event.issue.number }} (follow the Communication Protocol)
+            2. Analyze the feature request thoroughly
+            3. Create a comprehensive implementation plan
+            4. Post your plan as a comment on issue #${{ github.event.issue.number }}
+            5. Post a "Plan Complete" handoff message (follow the Communication Protocol)
+            6. Add appropriate labels:
+               - "awaiting-human-review" (REQUIRED - triggers human review notification)
+               - "priority-high", "priority-medium", or "priority-low" (based on your assessment)
+
+            **IMPORTANT**: Do NOT add "approved-plan" label yourself. The human will add it after reviewing your plan.
+
+            **Remember**: All communication should go to issue #${{ github.event.issue.number }} and follow the Communication Protocol format from your agent configuration.
+          claude_args: |
+            --max-turns 50
+            --model claude-opus-4-6
+            --allowedTools View,Write,Edit,Bash(gh:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(echo:*),Bash(which:*),Bash(pwd:*),GlobTool,GrepTool,BatchTool

@@ -1,0 +1,61 @@
+name: "07 - Human Review Checkpoint"
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  human-review-reminder:
+    if: github.event.label.name == 'awaiting-human-review'
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write
+
+    steps:
+      - name: Notify Human for Plan Review
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## Human Review Required
+
+            **Status**: The Planner has created an implementation plan and is waiting for your approval.
+
+            ### What's Happened So Far
+            - Planner analyzed the feature request
+            - Comprehensive implementation plan created
+            - Waiting for human approval before starting development
+
+            ### What You Need to Do
+            1. **Review the implementation plan** above
+            2. **Check the following**:
+               - Does the plan match your expectations?
+               - Are the technical requirements clear?
+               - Are the acceptance criteria complete?
+               - Is anything missing or incorrect?
+            3. **Take action**:
+               - **If approved**: Add the \`approved-plan\` label, then comment \`@fullstack-dev please implement\`
+               - **If changes needed**: Post a comment with your requested changes, add the \`needs-revision\` label
+               - **If unclear**: Ask questions in a comment and tag @product-manager
+
+            ### What Happens Next
+            Once you add \`approved-plan\` label and mention \`@fullstack-dev\`:
+            - The Fullstack Developer will be automatically triggered
+            - They will start implementing the feature based on this plan
+            - You can track progress through status updates in this issue
+            - The Kanban board will be updated automatically
+
+            ### Labels Available
+            - \`approved-plan\` - Approve the plan and start development
+            - \`needs-revision\` - Request changes to the plan
+            - \`needs-clarification\` - You need more information before deciding
+
+            ---
+            *Automated notification - Please review the plan and take action*
+            `
+            });

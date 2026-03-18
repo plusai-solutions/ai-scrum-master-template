@@ -1,0 +1,71 @@
+name: "02 - Plan to Implementation (Fullstack Developer)"
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  fullstack-implementation:
+    if: |
+      github.event.issue.pull_request == null &&
+      contains(github.event.comment.body, '@fullstack-dev') &&
+      contains(github.event.issue.labels.*.name, 'approved-plan')
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write
+      contents: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - name: Fullstack Developer Implementation
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          show_full_output: true
+          prompt: |
+            You are the Fullstack Developer for this project. You have been assigned to implement issue #${{ github.event.issue.number }}.
+
+            **IMPORTANT**: Follow the Communication Protocol in .claude/agents/fullstack_dev.md
+
+            Read your agent configuration at .claude/agents/fullstack_dev.md to understand your role, responsibilities, and implementation process.
+
+            Read the project context from CLAUDE.md to understand the project structure, tech stack, and coding standards.
+
+            Read the implementation plan from issue #${{ github.event.issue.number }}.
+
+            **Assignment Context**:
+            - Assigned by: ${{ github.event.comment.user.login }}
+            - Comment: ${{ github.event.comment.html_url }}
+
+            **Your Tasks**:
+            1. Post a "Starting Implementation" comment to issue #${{ github.event.issue.number }} (follow Communication Protocol)
+            2. Ensure you are starting from the 'develop' branch (NOT 'main')
+            3. Create a feature branch named "feature/issue-${{ github.event.issue.number }}-<descriptive-name>" from develop
+            4. Implement the feature as specified in the plan (frontend + backend)
+            5. Write unit tests for your implementation
+            6. Read CLAUDE.md for the exact lint, test, and build commands, then run them to ensure quality
+            7. Follow the coding standards and patterns from CLAUDE.md
+            8. Make focused commits with clear commit messages
+            9. Push your feature branch to the repository
+            10. Open a pull request with:
+                - Base branch: develop (IMPORTANT: NOT main)
+                - Compare branch: your feature branch
+                - Reference issue #${{ github.event.issue.number }}
+            11. Post a "PR Created" update to issue #${{ github.event.issue.number }} with PR link (follow Communication Protocol)
+
+            **CRITICAL**:
+            - Read CLAUDE.md for the complete Git workflow. All PRs MUST target 'develop' branch, not 'main'.
+            - MUST post status updates to issue #${{ github.event.issue.number }} following the Communication Protocol
+            - Include the PR number and link in your final update to the issue
+          claude_args: |
+            --model claude-sonnet-4-6
+            --allowedTools View,Write,Edit,Bash(gh:*),Bash(git:*),Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(pip:*),Bash(python:*),Bash(cargo:*),Bash(go:*),Bash(make:*),Bash(flutter:*),Bash(dart:*),Bash(yarn:*),Bash(pnpm:*),Bash(bundle:*),Bash(gem:*),Bash(ls:*),Bash(cat:*),Bash(echo:*),Bash(which:*),Bash(pwd:*),Bash(mkdir:*),Bash(curl:*),Bash(chmod:*),GlobTool,GrepTool,BatchTool

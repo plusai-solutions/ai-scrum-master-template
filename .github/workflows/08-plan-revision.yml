@@ -1,0 +1,103 @@
+name: "08 - Plan Revision (Planner)"
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  planner-revision:
+    if: |
+      github.event.issue.pull_request == null &&
+      contains(github.event.comment.body, '@product-manager') &&
+      contains(github.event.issue.labels.*.name, 'needs-revision')
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Planner Plan Revision
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the Planner (Product Manager) for this project. A human has requested revisions to your implementation plan for issue #${{ github.event.issue.number }}.
+
+            **IMPORTANT**: Follow the Communication Protocol in .claude/agents/product_manager.md
+
+            Read your agent configuration at .claude/agents/product_manager.md to understand your role and responsibilities.
+
+            Read the project context from CLAUDE.md to understand the project structure and standards.
+
+            **Revision Request Context**:
+            - Requested by: ${{ github.event.comment.user.login }}
+            - Comment: ${{ github.event.comment.html_url }}
+
+            **Your Tasks**:
+            1. Post a "Starting Revision" comment to issue #${{ github.event.issue.number }}:
+               ```markdown
+               ## Planner - Revising Plan
+
+               I've received feedback on my implementation plan and I'm revising it based on the requested changes.
+
+               **Feedback from**: @${{ github.event.comment.user.login }}
+
+               **Status**: Revision in Progress
+               ```
+
+            2. Read ALL comments on issue #${{ github.event.issue.number }} to find:
+               - Your original implementation plan
+               - The human's feedback and requested changes
+               - Any additional context or questions
+
+            3. Create a REVISED implementation plan that:
+               - Addresses all the human's concerns
+               - Incorporates the requested changes
+               - Maintains the same structured format
+               - Clearly indicates what was changed
+
+            4. Post your revised plan as a comment with:
+               ```markdown
+               ## REVISED Implementation Plan
+
+               **Changes Made Based on Feedback**:
+               - [Change 1]
+               - [Change 2]
+
+               ---
+
+               [Your complete revised plan using the standard format]
+               ```
+
+            5. Post a "Revision Complete" handoff message:
+               ```markdown
+               ## Planner - Revision Complete
+
+               I've updated the implementation plan based on your feedback.
+
+               **Next Steps**:
+               - @${{ github.event.comment.user.login }} Please review the revised plan above
+               - If approved, remove the `needs-revision` label, add the `approved-plan` label, then comment `@fullstack-dev please implement`
+               - If further changes needed, mention me again with "@product-manager"
+
+               **Status**: Awaiting Human Review
+               ```
+
+            6. Remove the `needs-revision` label
+            7. Add the `awaiting-human-review` label
+
+            **CRITICAL**:
+            - Address EVERY point raised by the human
+            - Be explicit about what changed in the revised plan
+            - Follow the Communication Protocol format
+          claude_args: |
+            --max-turns 50
+            --model claude-opus-4-6
+            --allowedTools View,Write,Edit,Bash(gh:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(echo:*),Bash(which:*),Bash(pwd:*),GlobTool,GrepTool,BatchTool

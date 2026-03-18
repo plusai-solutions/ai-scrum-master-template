@@ -1,0 +1,292 @@
+name: "00 - Kanban Board Management (Scrum Master)"
+
+on:
+  issue_comment:
+    types: [created]
+  issues:
+    types: [labeled]
+  pull_request:
+    types: [opened, closed]
+  pull_request_target:
+    types: [labeled]
+
+jobs:
+  # When human asks Scrum Master to create backlog items
+  create-backlogs:
+    if: |
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request == null &&
+      contains(github.event.issue.labels.*.name, 'kanban') &&
+      contains(github.event.comment.body, '@scrum-master')
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Scrum Master - Create Backlogs
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: 'claude,*'
+          show_full_output: true
+          prompt: |
+            You are the Scrum Master for this project. A human has asked you to help manage the Kanban board on issue #${{ github.event.issue.number }}.
+
+            Read your agent configuration at .claude/agents/scrum_master.md.
+            Read the project context from CLAUDE.md to understand the tech stack, architecture, and standards.
+
+            **Human's comment**: "${{ github.event.comment.body }}"
+            **Kanban Issue**: #${{ github.event.issue.number }}
+
+            **Your Tasks**:
+            1. Read the current Kanban board (issue #${{ github.event.issue.number }} body) using `gh issue view ${{ github.event.issue.number }} --json body -q .body`
+            2. Analyze the human's request. They may ask you to:
+               - Create backlog items from a project description or feature list
+               - Break down a high-level goal into discrete, actionable tickets
+               - Re-prioritize existing backlog items
+               - Any other Kanban board management task
+            3. For creating backlogs:
+               - Break the request into discrete, well-scoped tickets
+               - Assign priority (priority-high, priority-medium, priority-low) to each
+               - Each ticket should be independently implementable
+               - Write clear, actionable ticket titles
+            4. Update the Kanban board issue body by editing it with `gh issue edit ${{ github.event.issue.number }} --body "<updated board>"`
+               - Add new items under the `### Backlog` section
+               - Format: `- [ ] Ticket title (priority-high/medium/low)`
+               - Preserve all existing items in other sections
+            5. Post a summary comment on the Kanban issue listing what you added and asking the human to review
+
+            **IMPORTANT**:
+            - Update the issue BODY (not just comments) to reflect the board state
+            - Post a comment as an audit trail explaining what changed
+            - Do NOT create feature issues yet - items stay in Backlog until human approves them
+            - Do NOT add the `feature-request` label to anything yet
+          claude_args: |
+            --max-turns 30
+            --model claude-opus-4-6
+            --allowedTools View,Write,Edit,Bash(gh:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(echo:*),Bash(which:*),Bash(pwd:*),GlobTool,GrepTool,BatchTool
+
+  # When human approves a backlog item by commenting "approve <ticket>"
+  approve-backlog-item:
+    if: |
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request == null &&
+      contains(github.event.issue.labels.*.name, 'kanban') &&
+      startsWith(github.event.comment.body, 'approve ') &&
+      !contains(github.event.comment.body, '@scrum-master')
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Scrum Master - Move to Planning
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: 'claude,*'
+          show_full_output: true
+          prompt: |
+            You are the Scrum Master for this project. A human has approved a backlog item on the Kanban board issue #${{ github.event.issue.number }}.
+
+            Read your agent configuration at .claude/agents/scrum_master.md.
+            Read the project context from CLAUDE.md.
+
+            **Human's comment**: "${{ github.event.comment.body }}"
+            **Kanban Issue**: #${{ github.event.issue.number }}
+
+            **Your Tasks**:
+            1. Read the current Kanban board (issue #${{ github.event.issue.number }} body)
+            2. Find the approved backlog item from the human's comment (the text after "approve ")
+            3. Create a new feature issue for this item with:
+               - Clear title and description
+               - Reference to the Kanban board issue
+               - Add `feature-request` label to trigger the Planner agent
+            4. Update the Kanban board: move the item from Backlog to Planning with the new issue number
+            5. Post a status comment on the Kanban issue explaining the move
+          claude_args: |
+            --max-turns 30
+            --model claude-opus-4-6
+            --allowedTools View,Write,Edit,Bash(gh:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(echo:*),Bash(which:*),Bash(pwd:*),GlobTool,GrepTool,BatchTool
+
+  # When a plan is approved (approved-plan label added to a feature issue)
+  plan-approved:
+    if: |
+      github.event_name == 'issues' &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'approved-plan' &&
+      !contains(github.event.issue.labels.*.name, 'kanban')
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Scrum Master - Move to Developing
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: 'claude,*'
+          prompt: |
+            You are the Scrum Master. A plan has been approved for issue #${{ github.event.issue.number }}.
+
+            Read your agent configuration at .claude/agents/scrum_master.md.
+
+            **Your Tasks**:
+            1. Find the Kanban board issue (look for issue with `kanban` label using `gh issue list --label kanban`)
+            2. Update the Kanban board: move this item from Planning to Developing
+            3. Post a status comment on the Kanban board issue
+            4. The developer will be triggered by the plan-to-implementation workflow separately
+          claude_args: |
+            --max-turns 20
+            --model claude-sonnet-4-6
+            --allowedTools View,Bash(gh:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(echo:*),GlobTool,GrepTool
+
+  # When a PR is opened (move to Testing)
+  pr-opened:
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.action == 'opened' &&
+      github.event.pull_request.base.ref == 'develop'
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write
+      contents: read
+      pull-requests: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Scrum Master - Move to Testing
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: 'claude,*'
+          prompt: |
+            You are the Scrum Master. A PR #${{ github.event.pull_request.number }} has been opened targeting develop.
+
+            Read your agent configuration at .claude/agents/scrum_master.md.
+
+            **PR Details**:
+            - PR Number: #${{ github.event.pull_request.number }}
+            - Title: ${{ github.event.pull_request.title }}
+            - Body: ${{ github.event.pull_request.body }}
+
+            **Your Tasks**:
+            1. Find the related issue number from the PR description
+            2. Find the Kanban board issue (look for issue with `kanban` label)
+            3. Update the Kanban board: move this item from Developing to Testing, include PR number
+            4. Post a status comment on the Kanban board issue
+          claude_args: |
+            --max-turns 20
+            --model claude-sonnet-4-6
+            --allowedTools View,Bash(gh:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(echo:*),GlobTool,GrepTool
+
+  # When tests pass (move to Human Review)
+  tests-passed:
+    if: |
+      github.event_name == 'pull_request_target' &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'tests-passed'
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write
+      contents: read
+      pull-requests: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Scrum Master - Move to Human Review
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: 'claude,*'
+          prompt: |
+            You are the Scrum Master. Tests have passed for PR #${{ github.event.pull_request.number }}.
+
+            Read your agent configuration at .claude/agents/scrum_master.md.
+
+            **Your Tasks**:
+            1. Find the related issue number from PR #${{ github.event.pull_request.number }}
+            2. Find the Kanban board issue
+            3. Update the Kanban board: move this item from Testing to Human Review
+            4. Post a status comment on the Kanban board issue notifying the human
+          claude_args: |
+            --max-turns 20
+            --model claude-sonnet-4-6
+            --allowedTools View,Bash(gh:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(echo:*),GlobTool,GrepTool
+
+  # When PR is merged (move to Done)
+  pr-merged:
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'develop'
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write
+      contents: read
+      pull-requests: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Scrum Master - Move to Done
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: 'claude,*'
+          prompt: |
+            You are the Scrum Master. PR #${{ github.event.pull_request.number }} has been merged to develop.
+
+            Read your agent configuration at .claude/agents/scrum_master.md.
+
+            **Your Tasks**:
+            1. Find the related issue number from PR #${{ github.event.pull_request.number }}
+            2. Find the Kanban board issue
+            3. Update the Kanban board: move this item from Human Review to Done (change `- [ ]` to `- [x]`)
+            4. Post a congratulatory status comment on the Kanban board issue
+            5. Close the related feature issue if it's still open
+          claude_args: |
+            --max-turns 20
+            --model claude-sonnet-4-6
+            --allowedTools View,Bash(gh:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(echo:*),GlobTool,GrepTool

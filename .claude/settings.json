@@ -1,0 +1,44 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [
+      "View",
+      "Write",
+      "Edit",
+      "GlobTool",
+      "GrepTool",
+      "BatchTool",
+      "Bash"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "allowlist",
+            "patterns": [
+              "gh *",
+              "git *",
+              "npm *",
+              "npx *",
+              "node *",
+              "ls *",
+              "cat *",
+              "echo *",
+              "which *",
+              "pwd *",
+              "cd *",
+              "mkdir *",
+              "rm *",
+              "cp *",
+              "mv *"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "enableAllProjectMcpServers": true
+}
