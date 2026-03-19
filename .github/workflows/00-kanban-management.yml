@@ -6,9 +6,7 @@ on:
   issues:
     types: [labeled]
   pull_request:
-    types: [opened, closed]
-  pull_request_target:
-    types: [labeled]
+    types: [opened, closed, labeled]
 
 jobs:
   # When human asks Scrum Master to create backlog items
@@ -112,17 +110,15 @@ jobs:
 
             **Your Tasks**:
             1. Read the current Kanban board (issue #${{ github.event.issue.number }} body)
-            2. Parse the human's comment to determine what to approve:
-               - If the comment is "approve all", approve ALL items currently in the Backlog
-               - Otherwise, find the specific backlog item matching the text after "approve "
-            3. For EACH approved item, create a new feature issue with:
+            2. Find the approved backlog item from the human's comment (the text after "approve ")
+            3. Create a new feature issue for this item with:
                - Clear title and description
                - Reference to the Kanban board issue
                - Add `feature-request` label to trigger the Planner agent
-            4. Update the Kanban board: move all approved items from Backlog to Planning with their new issue numbers
-            5. Post a status comment on the Kanban issue listing all items that were moved to Planning
+            4. Update the Kanban board: move the item from Backlog to Planning with the new issue number
+            5. Post a status comment on the Kanban issue explaining the move
           claude_args: |
-            --max-turns 60
+            --max-turns 30
             --model claude-opus-4-6
             --allowedTools View,Write,Edit,Bash(gh:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(echo:*),Bash(which:*),Bash(pwd:*),GlobTool,GrepTool,BatchTool
 
@@ -214,7 +210,7 @@ jobs:
   # When tests pass (move to Human Review)
   tests-passed:
     if: |
-      github.event_name == 'pull_request_target' &&
+      github.event_name == 'pull_request' &&
       github.event.action == 'labeled' &&
       github.event.label.name == 'tests-passed'
     runs-on: ubuntu-latest
