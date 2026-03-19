@@ -112,15 +112,17 @@ jobs:
 
             **Your Tasks**:
             1. Read the current Kanban board (issue #${{ github.event.issue.number }} body)
-            2. Find the approved backlog item from the human's comment (the text after "approve ")
-            3. Create a new feature issue for this item with:
+            2. Parse the human's comment to determine what to approve:
+               - If the comment is "approve all", approve ALL items currently in the Backlog
+               - Otherwise, find the specific backlog item matching the text after "approve "
+            3. For EACH approved item, create a new feature issue with:
                - Clear title and description
                - Reference to the Kanban board issue
                - Add `feature-request` label to trigger the Planner agent
-            4. Update the Kanban board: move the item from Backlog to Planning with the new issue number
-            5. Post a status comment on the Kanban issue explaining the move
+            4. Update the Kanban board: move all approved items from Backlog to Planning with their new issue numbers
+            5. Post a status comment on the Kanban issue listing all items that were moved to Planning
           claude_args: |
-            --max-turns 30
+            --max-turns 60
             --model claude-opus-4-6
             --allowedTools View,Write,Edit,Bash(gh:*),Bash(git:*),Bash(ls:*),Bash(cat:*),Bash(echo:*),Bash(which:*),Bash(pwd:*),GlobTool,GrepTool,BatchTool
 
