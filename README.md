@@ -1,5 +1,7 @@
 # Collo.dev: Scrum Master Github AI Agent Template
 
+![Demo](assets/demo20s.gif)
+
 ## Why AI Needs a Scrum Master
 
 AI coding agents are powerful — they can plan features, write code, and run tests. But without coordination, they become chaotic. Multiple agents working on the same codebase need someone to break down work, assign tasks, track progress, and ensure nothing falls through the cracks.
